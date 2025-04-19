@@ -1,9 +1,13 @@
 from dataclasses import dataclass
 from datetime import datetime, date, timedelta
+from pathlib import Path
+import numpy as np
 import pandas as pd
 import typing as t
 from dateutil.parser import parse
+
 path = r"C:\Users\Dipankar.Mandal\OneDrive - Ipsos\MyPersonal\MMA-PMF_testing\Core_Workbook.xlsx"
+path1 = r"C:\Users\Dipankar.Mandal\OneDrive - Ipsos\MyPersonal\MMA-PMF_testing\CustomWorkbook.xlsb"
 
 
 class LocationDetails:
@@ -30,7 +34,7 @@ class ExcelProvider:
     SHEET_NAME: str = "Weekly"
 
     def excelReader(self, path)->pd.DataFrame:
-        if path.lstrip(".") == "xlsb":
+        if Path(path).suffix == ".xlsb":
             return pd.read_excel(path1, engine='pyxlsb', sheet_name=self.SHEET_NAME, header=8)
         return pd.read_excel(path, sheet_name=self.SHEET_NAME)
 
@@ -48,7 +52,7 @@ class ExcelProvider:
 
         locDetails = LocationDetails(
             startIndex=min(locs),
-            endIndex=max(locs),
+            endIndex=max(locs) + 1,
             noOfWeeks=max(locs) - min(locs) + 1
         )
 
@@ -77,7 +81,7 @@ class ExcelProvider:
 
         locDetails = LocationDetails(
             startIndex=min(locs),
-            endIndex=max(locs),
+            endIndex=max(locs) + 1,
             noOfWeeks=max(locs) - min(locs) + 1
         )
 
@@ -94,23 +98,28 @@ if __name__ == "__main__":
     CORE_WB_DF = excelProvider.excelReader(path)
     CORE_WB_LOC_DETAILS = excelProvider.getWeekLocationForCoreWB(CORE_WB_DF.columns)
 
-    colsRange = list(range(0, 2)) + list(range(CORE_WB_LOC_DETAILS.startIndex, CORE_WB_LOC_DETAILS.noOfWeeks))
-    CORE_NEW_WB_DF = CORE_WB_DF.iloc[:,colsRange]
-    coreFrameWork = CORE_NEW_WB_DF.iloc[:,:2]
+    colsRange = list(range(0, 2)) + list(range(CORE_WB_LOC_DETAILS.startIndex, CORE_WB_LOC_DETAILS.endIndex))
+    CORE_WEEKLY = CORE_WB_DF.iloc[:,colsRange]
+    coreFrameWork = CORE_WEEKLY.iloc[:,:2]
     del CORE_WB_DF
 
     MATCHBACK_C_WB = excelProvider.excelReader(path1)
     MATCHBACK_WB_LOC_DETAILS = excelProvider.getWeekLocationForCustomCoreWB(MATCHBACK_C_WB.columns)
     
-    colsRange = list(range(0, 2)) + list(range(MATCHBACK_WB_LOC_DETAILS.startIndex, CORE_WB_LOC_DETAILS.noOfWeeks))
+    colsRange = list(range(0, 2)) + list(range(MATCHBACK_WB_LOC_DETAILS.startIndex, MATCHBACK_WB_LOC_DETAILS.startIndex + CORE_WB_LOC_DETAILS.noOfWeeks))
     FILTERED_MATCHBACK_C_WB = MATCHBACK_C_WB.iloc[:,colsRange]
 
     FILTERED_MATCHBACK_C_WB.rename(columns={'Variable Name':'Variable'},inplace=True)
     FILTERED_MATCHBACK_C_WB.fillna(0,inplace=True)
 
-    # ## MatchBack TAb and Current Tab ##
-    # NEW_WEEKLY.columns=Matchback_CWB.columns
-    # NEW_WEEKLY
-    # Matchback_Weekly=pd.merge(Framework,Matchback_CWB,on=("ModelKey","Variable"),how='left')
-    # del Matchback_CWB
-    # Matchback_Weekly
+    CORE_WEEKLY.columns = FILTERED_MATCHBACK_C_WB.columns
+    MATCHBACK_WEEKLY = pd.merge(coreFrameWork,FILTERED_MATCHBACK_C_WB,on=("ModelKey","Variable"),how='left')
+    del MATCHBACK_C_WB
+    del FILTERED_MATCHBACK_C_WB
+
+    PMF = pd.concat([coreFrameWork,(MATCHBACK_WEEKLY.iloc[:,2:].div(CORE_WEEKLY.iloc[:,2:],fill_value=1))],axis=1)
+    PMF.fillna(1,inplace=True)
+    PMF.replace(np.inf,1,inplace=True)
+
+    PMF.to_csv(r"")
+

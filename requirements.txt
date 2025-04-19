@@ -3,3 +3,7 @@ numpy
 pyxlsb
 xlsxwriter
 openpyxl
+
+pyinstaller
+ttkbootstrap
+tkinter
